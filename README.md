@@ -95,7 +95,7 @@ npm install -g openlore@latest
 ./lancedb-intel repair
 ```
 
-If LanceDB remains at the same exact version, `repair` reuses the cached module. If the required version changes, the old build is never reused; run `./lancedb-intel build`, review its result, then run `./lancedb-intel repair`. The tool refuses to install when OpenLore's declared dependency and the resolved package version differ.
+If LanceDB remains at the same exact version, `repair` reuses the cached module. If the required version changes, first download the matching published Release as described in “Get a published Intel binary”; then run `repair`. Only if no matching Release exists should an advanced user compile and publish it. The tool refuses to install when OpenLore's declared dependency and the resolved package version differ.
 
 The initial audit found an inconsistent global OpenLore installation: OpenLore `3.5.0` declared LanceDB `0.40.0`, while npm resolved `0.22.4-beta.3`. Reinstalling the same OpenLore version corrected the dependency tree. `lancedb-intel repair` then installed the cached Intel binding, and its smoke test passed against the global SDK.
 

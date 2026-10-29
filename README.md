@@ -66,7 +66,7 @@ Use the prebuilt binary from the GitHub Release for the exact LanceDB version re
 OPENLORE_ROOT="$(npm root -g)/openlore"
 LANCEDB_VERSION="$(node -e 'const p=require(process.argv[1]); process.stdout.write(p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"] ?? "")' "$OPENLORE_ROOT/package.json")"
 CACHE="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
-TAG="lancedb-$LANCEDB_VERSION-darwin-x64"
+TAG="v$LANCEDB_VERSION"
 mkdir -p "$CACHE"
 gh release download "$TAG" --repo laurentftech/lancedb-intel --dir "$CACHE" \
   --pattern 'lancedb.darwin-x64.node' \
@@ -84,7 +84,7 @@ Builds are needed only when no matching binary has been published yet. The repos
 
 To publish a new version, register the Intel Mac as a repository-level runner in GitHub Settings → Actions → Runners, install/run it under the account that has OpenLore, Rust, Cargo, and protobuf, and assign the lancedb-intel label. Then choose Actions → “Publish macOS Intel LanceDB build” → Run workflow. The workflow uses its short-lived GITHUB_TOKEN with contents: write; it needs no personal access token or repository secret.
 
-The release tag is lancedb-<version>-darwin-x64. Re-running the workflow for that version replaces its three assets. Publication is manual and does not run on pushes or tags. The initial cold build took 102 minutes; the existing Cargo cache makes later builds of the same version much faster.
+Release tags follow the official LanceDB version tag: v<version> (for example, v0.40.0). Platform specificity stays in the asset filename and build metadata. Re-running the workflow for that version replaces its three assets. The first 0.40.0 run, already in progress when this convention was adopted, will retain its legacy tag lancedb-0.40.0-darwin-x64. Publication is manual and does not run on pushes or tags. The initial cold build took 102 minutes; the existing Cargo cache makes later builds of the same version much faster.
 
 ## After updating OpenLore
 

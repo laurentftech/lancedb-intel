@@ -69,7 +69,7 @@ npm install -g openlore@latest
 
 If LanceDB remains at the same exact version, `repair` reuses the cached module. If the required version changes, the old build is never reused; run `./lancedb-intel build`, review its result, then run `./lancedb-intel repair`. The tool refuses to install when OpenLore's declared dependency and the resolved package version differ.
 
-The initial audit found an inconsistent global OpenLore installation: OpenLore `3.5.0` declared LanceDB `0.40.0`, while npm resolved `0.22.4-beta.3`. The CLI reports and refuses this mismatch. No update or repair was run against that global installation.
+The initial audit found an inconsistent global OpenLore installation: OpenLore `3.5.0` declared LanceDB `0.40.0`, while npm resolved `0.22.4-beta.3`. Reinstalling the same OpenLore version corrected the dependency tree. `lancedb-intel repair` then installed the cached Intel binding, and its smoke test passed against the global SDK.
 
 ## Rollback
 
@@ -87,6 +87,6 @@ The tool restores the saved binary if one existed before installation, or remove
 - The tested upstream Cargo lockfile needed three workspace package version entries updated from `0.40.0-beta.12` to `0.40.0`; the script records this small patch and fails if the build changes any other tracked source file.
 - The first release build is resource intensive and can take a long time on older Intel Macs.
 - A fresh npm install or OpenLore update removes injected files; run `repair` after each update.
-- No action has been taken on the user's existing global OpenLore installation or its data.
+- The original global OpenLore package tree is backed up under `~/.local/share/lancedb-intel/backups/`; its OpenLore data directory was not used or modified.
 
 See [feasibility](docs/feasibility.md) and [integration design](docs/integration.md) for the evidence and decision details.

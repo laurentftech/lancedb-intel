@@ -13,9 +13,9 @@
 | `protoc` | `libprotoc 36.2` (installed with Homebrew) |
 | OpenLore global package | `openlore@3.5.0` |
 | OpenLore declared LanceDB | `0.40.0` |
-| Global resolved LanceDB | `0.22.4-beta.3` — npm reports this dependency as invalid |
+| Global resolved LanceDB | Initially `0.22.4-beta.3` (invalid); after reinstalling OpenLore `3.5.0`, `0.40.0` |
 
-The global install has no `package-lock.json`. It does contain an Intel native module for the old resolved version, which loaded successfully, but that is not evidence for the required `0.40.0` binding. The package README documents global npm installation (`npm install -g openlore`); the CLI exposes no self-update command.
+The initial global install had no `package-lock.json` and contained an Intel native module for the old resolved version. The existing npm package tree was backed up before reinstalling the same OpenLore version. The package README documents global npm installation (`npm install -g openlore`); the CLI exposes no self-update command.
 
 ## Official source and native target
 
@@ -47,8 +47,8 @@ The first release build took 102 minutes 26 seconds and produced a 186 MB `libla
 
 An isolated npm install of the official LanceDB 0.40.0 tarball failed to load on Intel before adding the module, with `Cannot find module '@lancedb/lancedb-darwin-x64'`. Copying the compiled module to the loader-supported `dist/lancedb.darwin-x64.node` path made `require('@lancedb/lancedb')` succeed.
 
-`tests/smoke-test.mjs` passed: connect, create table, insert three vectors, perform vector search, close, reconnect, reopen the table, search again, close, and remove the temporary test database. An isolated install of OpenLore `3.5.0` resolved LanceDB `0.40.0`; `openlore init`, `analyze --no-embed`, and `orient` all succeeded with the compiled module present. No user OpenLore data was read or modified for these runs.
+`tests/smoke-test.mjs` passed: connect, create table, insert three vectors, perform vector search, close, reconnect, reopen the table, search again, close, and remove the temporary test database. An isolated install of OpenLore `3.5.0` resolved LanceDB `0.40.0`; `openlore init`, `analyze --no-embed`, and `orient` succeeded with the compiled module present. After reinstalling the global OpenLore `3.5.0` package, the CLI resolved `0.40.0`, `lancedb-intel repair` installed the module, and the smoke test passed against the global SDK. The OpenLore data directory was not used or modified.
 
 ## Conclusion
 
-Native compilation and loading for macOS Intel are feasible for LanceDB `0.40.0` without changing upstream JavaScript or Rust. The first full release build is expensive on this hardware; subsequent builds with the Cargo cache are fast. The installer and repair mechanism are implemented in this directory and tested against the isolated npm installation. The inconsistent global package tree remains untouched.
+Native compilation and loading for macOS Intel are feasible for LanceDB `0.40.0` without changing upstream JavaScript or Rust. The first full release build is expensive on this hardware; subsequent builds with the Cargo cache are fast. The installer and repair mechanism were tested against an isolated npm installation and the repaired global OpenLore SDK.

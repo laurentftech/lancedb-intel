@@ -21,7 +21,7 @@ The selected direct injection changes one generated native file under the instal
 - `repair`: installs a matching cache entry, then tests. With no entry it exits without changes and prints the build command; `repair --build` opts into compilation.
 - `restore`: restores the pre-install file or removes only the module managed by this tool.
 
-An OpenLore update is an explicit npm operation followed by `repair`. The utility reads the dependency version after the update, so it never uses a build from another LanceDB version. The current global installation's `0.40.0` declaration / `0.22.4-beta.3` resolution mismatch makes `status` fail closed; reinstall a coherent OpenLore package before repairing that installation.
+An OpenLore update is an explicit npm operation followed by `repair`. The utility reads the dependency version after the update, so it never uses a build from another LanceDB version. The initial global package tree's `0.40.0` declaration / `0.22.4-beta.3` resolution mismatch made `status` fail closed. Reinstalling the same OpenLore version corrected the tree; `status` now confirms `0.40.0`.
 
 ## Update simulations executed
 
@@ -31,4 +31,4 @@ An OpenLore update is an explicit npm operation followed by `repair`. The utilit
 4. **Compilation failure:** `RUSTC_WRAPPER=/usr/bin/false` forced Cargo to fail in a clean target directory. The full error was written to the versioned build log, and no module was copied into the build cache.
 5. **Repeated repair:** after a successful install, repeated `repair` reports the matching checksum and performs no additional backup; it reruns the smoke test.
 
-The successful end-to-end integration was performed only in `/private/tmp/lancedb-intel-openlore`; the user's global OpenLore install and existing LanceDB data were left unchanged.
+6. **Global install recovery:** the original OpenLore `3.5.0` npm tree declared LanceDB `0.40.0` but resolved `0.22.4-beta.3`. After saving a full package backup and reinstalling the same OpenLore version, npm resolved `0.40.0`; `repair` reused the validated cache, installed the Intel module, and passed the smoke test. No OpenLore database was opened or modified.

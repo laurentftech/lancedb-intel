@@ -58,19 +58,11 @@ Set `LANCEDB_INTEL_HOME` to use another cache directory. `OPENLORE_ROOT` can poi
 
 `test` runs `tests/smoke-test.mjs` against the installed module. The test uses a fresh temporary LanceDB database, creates a table, inserts vectors, searches, closes and reopens the database, then removes only its temporary directory.
 
-## Local runner and GitHub Releases
+## Get a published Intel binary (recommended)
 
-The repository includes a manually triggered GitHub Actions workflow at `.github/workflows/publish-intel.yml`. It runs only on a self-hosted macOS Intel runner (`self-hosted`, `macOS`, `X64`), reads the exact LanceDB version declared by the runner account’s global OpenLore install, compiles and smoke-tests that version, then uploads the native module, build metadata, and SHA-256 checksum to a GitHub Release. No GitHub-hosted runner is configured, so the build uses the Mac’s CPU and Cargo cache rather than GitHub Actions compute minutes.
+Use the prebuilt binary from the GitHub Release for the exact LanceDB version required by your OpenLore installation. This is the normal path; it does not compile LanceDB. The private repository requires GitHub CLI authentication with read access:
 
-To enable it, register the Intel Mac as a repository-level self-hosted runner in GitHub Settings → Actions → Runners, install its service under the same account that owns the global OpenLore and Rust toolchain, and add the `lancedb-intel` custom label. Then use Actions → “Publish macOS Intel LanceDB build” → Run workflow. The workflow requires `contents: write` for its short-lived `GITHUB_TOKEN`; it does not need a personal access token or repository secret.
-
-The release tag is `lancedb-<version>-darwin-x64`. Re-running the workflow for the same version replaces the three assets in that Release. The repository must be checked out on the runner with the workflow file available. Triggering the workflow is an explicit publication action; it is not triggered by pushes or tags.
-
-### Reuse a published binary without rebuilding
-
-After updating OpenLore, check the LanceDB version it declares. If a matching Release already exists, download its binary and build metadata into the local cache, verify the checksum, then repair the OpenLore install:
-
-```sh
+~~~sh
 OPENLORE_ROOT="$(npm root -g)/openlore"
 LANCEDB_VERSION="$(node -e 'const p=require(process.argv[1]); process.stdout.write(p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"] ?? "")' "$OPENLORE_ROOT/package.json")"
 CACHE="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
@@ -82,9 +74,17 @@ gh release download "$TAG" --repo laurentftech/lancedb-intel --dir "$CACHE" \
   --pattern 'SHA256SUMS'
 (cd "$CACHE" && shasum -a 256 -c SHA256SUMS)
 ./lancedb-intel repair
-```
+~~~
 
-This downloads the exact-version artifact; `repair` checks the metadata and binary checksum before installing it, then runs the smoke test. If the Release is missing, the download fails without changing OpenLore; build and publish that LanceDB version on the Intel runner first. A private repository requires `gh auth login` with access to the repository.
+The download step can be repeated safely. The repair command installs only a build whose version and checksum match the resolved LanceDB package, then runs the smoke test. If the Release does not exist, stop here and ask an advanced user to build and publish that version; repair will not substitute a binary from another version.
+
+## Build and publish a binary (advanced)
+
+Builds are needed only when no matching binary has been published yet. The repository includes a manually triggered workflow at .github/workflows/publish-intel.yml. It runs only on the self-hosted Intel Mac runner with labels self-hosted, macOS, X64, and lancedb-intel, reads the exact LanceDB version declared by the runner account’s global OpenLore install, compiles it, runs the smoke test, and uploads the module, build metadata, and SHA-256 checksum to a GitHub Release. There is no GitHub-hosted runner in this workflow.
+
+To publish a new version, register the Intel Mac as a repository-level runner in GitHub Settings → Actions → Runners, install/run it under the account that has OpenLore, Rust, Cargo, and protobuf, and assign the lancedb-intel label. Then choose Actions → “Publish macOS Intel LanceDB build” → Run workflow. The workflow uses its short-lived GITHUB_TOKEN with contents: write; it needs no personal access token or repository secret.
+
+The release tag is lancedb-<version>-darwin-x64. Re-running the workflow for that version replaces its three assets. Publication is manual and does not run on pushes or tags. The initial cold build took 102 minutes; the existing Cargo cache makes later builds of the same version much faster.
 
 ## After updating OpenLore
 

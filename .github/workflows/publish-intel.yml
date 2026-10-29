@@ -43,7 +43,7 @@ jobs:
           test -s "$build_dir/build-info.json"
           shasum -a 256 "$build_dir/lancedb.darwin-x64.node" > "$build_dir/SHA256SUMS"
           echo "dir=$build_dir" >> "$GITHUB_OUTPUT"
-          echo "tag=lancedb-${{ steps.lancedb.outputs.version }}-darwin-x64" >> "$GITHUB_OUTPUT"
+          echo "tag=v${{ steps.lancedb.outputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Create or update GitHub Release
         env:

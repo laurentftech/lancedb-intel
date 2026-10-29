@@ -77,7 +77,7 @@ gh attestation verify "$CACHE/lancedb.darwin-x64.node" --repo laurentftech/lance
 ./lancedb-intel repair
 ~~~
 
-The download step can be repeated safely. The repair command installs only a build whose version and checksum match the resolved LanceDB package, then runs the smoke test. The attestation check verifies that GitHub Actions in this repository produced the exact binary. Attestations are generated when the repository is public; on GitHub Free, Pro, or Team they are unavailable while the repository is private. The 0.40.0 run already in progress predates this attestation step, so after making the repository public, rerun the workflow to publish an attested binary. If the Release does not exist, stop here and ask an advanced user to build and publish that version; repair will not substitute a binary from another version.
+The download step can be repeated safely. The repair command installs only a build whose version and checksum match the resolved LanceDB package, then runs the smoke test. The attestation check verifies that GitHub Actions in this repository produced the exact binary. Attestations are generated when the repository is public; on GitHub Free, Pro, or Team they are unavailable while the repository is private. If the Release does not exist, stop here and ask an advanced user to build and publish that version; repair will not substitute a binary from another version.
 
 ## Build and publish a binary (advanced)
 

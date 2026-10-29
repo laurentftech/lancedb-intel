@@ -58,6 +58,14 @@ Set `LANCEDB_INTEL_HOME` to use another cache directory. `OPENLORE_ROOT` can poi
 
 `test` runs `tests/smoke-test.mjs` against the installed module. The test uses a fresh temporary LanceDB database, creates a table, inserts vectors, searches, closes and reopens the database, then removes only its temporary directory.
 
+## Local runner and GitHub Releases
+
+The repository includes a manually triggered GitHub Actions workflow at `.github/workflows/publish-intel.yml`. It runs only on a self-hosted macOS Intel runner (`self-hosted`, `macOS`, `X64`), reads the exact LanceDB version declared by the runner account’s global OpenLore install, compiles and smoke-tests that version, then uploads the native module, build metadata, and SHA-256 checksum to a GitHub Release. No GitHub-hosted runner is configured, so the build uses the Mac’s CPU and Cargo cache rather than GitHub Actions compute minutes.
+
+To enable it, register the Intel Mac as a repository-level self-hosted runner in GitHub Settings → Actions → Runners, install its service under the same account that owns the global OpenLore and Rust toolchain, and add the `lancedb-intel` custom label. Then use Actions → “Publish macOS Intel LanceDB build” → Run workflow. The workflow requires `contents: write` for its short-lived `GITHUB_TOKEN`; it does not need a personal access token or repository secret.
+
+The release tag is `lancedb-<version>-darwin-x64`. Re-running the workflow for the same version replaces the three assets in that Release. The repository must be checked out on the runner with the workflow file available. Triggering the workflow is an explicit publication action; it is not triggered by pushes or tags.
+
 ## After updating OpenLore
 
 OpenLore does not have a self-update command; this installation is managed by npm. Update OpenLore explicitly, then run repair:

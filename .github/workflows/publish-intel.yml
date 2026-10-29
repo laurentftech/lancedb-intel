@@ -1,0 +1,62 @@
+name: Publish macOS Intel LanceDB build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    # This job only runs on the explicitly configured Intel Mac runner.
+    # There is deliberately no GitHub-hosted fallback.
+    runs-on: [self-hosted, macOS, X64, lancedb-intel]
+    timeout-minutes: 240
+    steps:
+      - name: Check out recipes
+        uses: actions/checkout@v4
+
+      - name: Locate global OpenLore
+        id: lancedb
+        shell: bash
+        run: |
+          set -euo pipefail
+          openlore_root="$(npm root -g)/openlore"
+          test -f "$openlore_root/package.json"
+          version="$(node -e 'const p=require(process.argv[1]); const v=p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"]; if (!v) process.exit(1); process.stdout.write(v)' "$openlore_root/package.json")"
+          echo "root=$openlore_root" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build LanceDB for Intel
+        run: ./lancedb-intel build --openlore-root "${{ steps.lancedb.outputs.root }}"
+
+      - name: Run isolated vector smoke test
+        run: ./lancedb-intel test --openlore-root "${{ steps.lancedb.outputs.root }}" --binary "$HOME/.local/share/lancedb-intel/builds/${{ steps.lancedb.outputs.version }}/lancedb.darwin-x64.node"
+
+      - name: Prepare release assets
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_dir="$HOME/.local/share/lancedb-intel/builds/${{ steps.lancedb.outputs.version }}"
+          test -s "$build_dir/lancedb.darwin-x64.node"
+          test -s "$build_dir/build-info.json"
+          shasum -a 256 "$build_dir/lancedb.darwin-x64.node" > "$build_dir/SHA256SUMS"
+          echo "dir=$build_dir" >> "$GITHUB_OUTPUT"
+          echo "tag=lancedb-${{ steps.lancedb.outputs.version }}-darwin-x64" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.assets.outputs.tag }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" \
+            --title "LanceDB ${{ steps.lancedb.outputs.version }} · macOS Intel" \
+            --notes "Official LanceDB source build for x86_64-apple-darwin. Built and smoke-tested on the repository's self-hosted Intel Mac runner. See build-info.json for source commit and toolchain details."
+          gh release upload "$tag" \
+            "${{ steps.assets.outputs.dir }}/lancedb.darwin-x64.node" \
+            "${{ steps.assets.outputs.dir }}/build-info.json" \
+            "${{ steps.assets.outputs.dir }}/SHA256SUMS" \
+            --clobber

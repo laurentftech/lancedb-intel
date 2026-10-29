@@ -1,6 +1,6 @@
 # Integration and update behavior
 
-The source-build procedure and native validation checks are reusable across JavaScript projects that depend on `@lancedb/lancedb`. This repository's automated package discovery and repair commands currently implement the OpenLore adapter only. Supporting another host application requires adding a package-root adapter; the LanceDB Rust build itself does not depend on OpenLore.
+The source-build procedure, isolated npm SDK smoke test, and native validation checks are reusable across JavaScript projects that depend on `@lancedb/lancedb`. The build accepts an exact npm version and does not require OpenLore. Automated package discovery, installation, and repair currently implement the OpenLore adapter only; supporting another host application requires adding a package-root adapter.
 
 ## Options compared
 
@@ -16,6 +16,7 @@ The selected direct injection changes one generated native file under the instal
 
 - `status`: compares OpenLore's declared dependency, resolved SDK, cache metadata, and installed module marker.
 - `build`: selects the exact `v<version>` tag and creates a validated cache entry.
+- `build --version <npm-version>`: builds and smoke-tests an exact LanceDB version using an isolated npm installation of that SDK. This works without OpenLore installed.
 - `test`: runs a temporary vector database smoke test.
 - `install`: backs up and atomically injects the matching binary, then tests it.
 - `repair`: installs a matching cache entry, then tests. With no entry it exits without changes and prints the build command; `repair --build` opts into compilation.

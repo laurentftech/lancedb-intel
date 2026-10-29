@@ -5,6 +5,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-and-publish:
@@ -44,6 +46,13 @@ jobs:
           shasum -a 256 "$build_dir/lancedb.darwin-x64.node" > "$build_dir/SHA256SUMS"
           echo "dir=$build_dir" >> "$GITHUB_OUTPUT"
           echo "tag=v${{ steps.lancedb.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Attest native module
+        # GitHub Free/Pro/Team supports attestations for public repositories.
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: ${{ steps.assets.outputs.dir }}/lancedb.darwin-x64.node
 
       - name: Create or update GitHub Release
         env:

@@ -66,6 +66,26 @@ To enable it, register the Intel Mac as a repository-level self-hosted runner in
 
 The release tag is `lancedb-<version>-darwin-x64`. Re-running the workflow for the same version replaces the three assets in that Release. The repository must be checked out on the runner with the workflow file available. Triggering the workflow is an explicit publication action; it is not triggered by pushes or tags.
 
+### Reuse a published binary without rebuilding
+
+After updating OpenLore, check the LanceDB version it declares. If a matching Release already exists, download its binary and build metadata into the local cache, verify the checksum, then repair the OpenLore install:
+
+```sh
+OPENLORE_ROOT="$(npm root -g)/openlore"
+LANCEDB_VERSION="$(node -e 'const p=require(process.argv[1]); process.stdout.write(p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"] ?? "")' "$OPENLORE_ROOT/package.json")"
+CACHE="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
+TAG="lancedb-$LANCEDB_VERSION-darwin-x64"
+mkdir -p "$CACHE"
+gh release download "$TAG" --repo laurentftech/lancedb-intel --dir "$CACHE" \
+  --pattern 'lancedb.darwin-x64.node' \
+  --pattern 'build-info.json' \
+  --pattern 'SHA256SUMS'
+(cd "$CACHE" && shasum -a 256 -c SHA256SUMS)
+./lancedb-intel repair
+```
+
+This downloads the exact-version artifact; `repair` checks the metadata and binary checksum before installing it, then runs the smoke test. If the Release is missing, the download fails without changing OpenLore; build and publish that LanceDB version on the Intel runner first. A private repository requires `gh auth login` with access to the repository.
+
 ## After updating OpenLore
 
 OpenLore does not have a self-update command; this installation is managed by npm. Update OpenLore explicitly, then run repair:

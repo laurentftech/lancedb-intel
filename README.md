@@ -42,4 +42,4 @@ To undo the integration, run `./lancedb-intel restore` from this repository.
 
 ## Maintainers
 
-Build and publish a missing version from the repository’s **Actions → Publish macOS Intel LanceDB build** workflow. It runs on the maintainer’s self-hosted Intel Mac and publishes a versioned Release with an attested binary. Keep that runner limited to trusted maintainers and manual publication runs; do not run untrusted pull request code on it.
+Build and publish a missing version from the repository’s **Actions → Publish macOS Intel LanceDB build** workflow. Enter the exact `@lancedb/lancedb` npm version to build; the build and smoke test use that SDK version directly and do not inspect or require OpenLore. The workflow runs on the maintainer’s self-hosted Intel Mac and publishes a versioned Release with an attested binary. Keep that runner limited to trusted maintainers and manual publication runs; do not run untrusted pull request code on it.

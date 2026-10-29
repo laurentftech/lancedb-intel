@@ -2,9 +2,16 @@ name: Publish macOS Intel LanceDB build
 
 on:
   workflow_dispatch:
+    inputs:
+      lancedb_version:
+        description: Exact @lancedb/lancedb npm version to build (for example, 0.40.0)
+        required: true
+        type: string
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-and-publish:
@@ -16,44 +23,42 @@ jobs:
       - name: Check out recipes
         uses: actions/checkout@v4
 
-      - name: Locate global OpenLore
-        id: lancedb
-        shell: bash
-        run: |
-          set -euo pipefail
-          openlore_root="$(npm root -g)/openlore"
-          test -f "$openlore_root/package.json"
-          version="$(node -e 'const p=require(process.argv[1]); const v=p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"]; if (!v) process.exit(1); process.stdout.write(v)' "$openlore_root/package.json")"
-          echo "root=$openlore_root" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Build LanceDB for Intel
-        run: ./lancedb-intel build --openlore-root "${{ steps.lancedb.outputs.root }}"
-
-      - name: Run isolated vector smoke test
-        run: ./lancedb-intel test --openlore-root "${{ steps.lancedb.outputs.root }}" --binary "$HOME/.local/share/lancedb-intel/builds/${{ steps.lancedb.outputs.version }}/lancedb.darwin-x64.node"
+      - name: Build and smoke-test LanceDB for Intel
+        env:
+          LANCEDB_VERSION: ${{ inputs.lancedb_version }}
+        run: ./lancedb-intel build --version "$LANCEDB_VERSION"
 
       - name: Prepare release assets
         id: assets
         shell: bash
+        env:
+          LANCEDB_VERSION: ${{ inputs.lancedb_version }}
         run: |
           set -euo pipefail
-          build_dir="$HOME/.local/share/lancedb-intel/builds/${{ steps.lancedb.outputs.version }}"
+          build_dir="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
           test -s "$build_dir/lancedb.darwin-x64.node"
           test -s "$build_dir/build-info.json"
           shasum -a 256 "$build_dir/lancedb.darwin-x64.node" > "$build_dir/SHA256SUMS"
           echo "dir=$build_dir" >> "$GITHUB_OUTPUT"
-          echo "tag=lancedb-${{ steps.lancedb.outputs.version }}-darwin-x64" >> "$GITHUB_OUTPUT"
+          echo "tag=v$LANCEDB_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Attest native module
+        # GitHub Free/Pro/Team supports attestations for public repositories.
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: ${{ steps.assets.outputs.dir }}/lancedb.darwin-x64.node
 
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          LANCEDB_VERSION: ${{ inputs.lancedb_version }}
         shell: bash
         run: |
           set -euo pipefail
           tag="${{ steps.assets.outputs.tag }}"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" \
-            --title "LanceDB ${{ steps.lancedb.outputs.version }} · macOS Intel" \
+            --title "LanceDB $LANCEDB_VERSION · macOS Intel" \
             --notes "Official LanceDB source build for x86_64-apple-darwin. Built and smoke-tested on the repository's self-hosted Intel Mac runner. See build-info.json for source commit and toolchain details."
           gh release upload "$tag" \
             "${{ steps.assets.outputs.dir }}/lancedb.darwin-x64.node" \

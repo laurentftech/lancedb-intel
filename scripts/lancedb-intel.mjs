@@ -153,7 +153,7 @@ async function inspectInstallation(openLoreRoot) {
 
 function versionFrom(options, installation) {
   const version = options.version || installation?.declared;
-  if (!version) throw new Error("Pass --version <npm-version> or install OpenLore so the required LanceDB version can be read.");
+  if (!version) throw new Error("Pass --version <exact npm-version> or provide OpenLore so its LanceDB version can be read.");
   if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
     throw new Error(`Expected an exact LanceDB npm version, got: ${version}`);
   }
@@ -184,6 +184,7 @@ async function ensureBuildTools() {
   for (const [command, args] of [
     ["rustc", ["--version"]],
     ["cargo", ["--version"]],
+    ["npm", ["--version"]],
     ["protoc", ["--version"]],
     ["xcode-select", ["-p"]],
   ]) {
@@ -240,10 +241,10 @@ function validateNativeDependencies(binaryPath) {
   console.log(`Dynamic libraries: ${linked.map((line) => line.trim().split(" ")[0]).filter(Boolean).join(", ")}`);
 }
 
-async function smokeTest(installation, binaryPath, logPath) {
+async function smokeTest(sdkRoot, binaryPath, logPath) {
   const env = {
     ...process.env,
-    LANCEDB_PACKAGE_ROOT: installation.sdkRoot,
+    LANCEDB_PACKAGE_ROOT: sdkRoot,
     NAPI_RS_NATIVE_LIBRARY_PATH: binaryPath,
   };
   const result = await runLogged(process.execPath, [path.join(toolRoot, "tests", "smoke-test.mjs")], toolRoot, logPath, env);
@@ -251,10 +252,43 @@ async function smokeTest(installation, binaryPath, logPath) {
   return { status: "passed", completedAt: new Date().toISOString() };
 }
 
+async function prepareSmokeTestSdk(version) {
+  const sdkRoot = path.join(buildDir(version), "smoke-test-sdk");
+  const packagePath = path.join(sdkRoot, "package.json");
+  await mkdir(sdkRoot, { recursive: true });
+  try {
+    const packageJson = packageJsonAt(sdkRoot);
+    const req = createRequire(packagePath);
+    const entry = req.resolve("@lancedb/lancedb");
+    const installed = findPackageRoot(entry, "@lancedb/lancedb");
+    if (packageJson.name === "lancedb-intel-smoke" && installed.pkg.version === version) {
+      return installed.root;
+    }
+  } catch {
+    // A missing or stale isolated SDK is installed below.
+  }
+
+  await writeJsonAtomic(packagePath, { name: "lancedb-intel-smoke", private: true });
+  const logPath = path.join(cacheRoot, "logs", `npm-smoke-sdk-${version}.log`);
+  const result = await runLogged("npm", [
+    "install", "--prefix", sdkRoot, "--no-save", "--ignore-scripts", "--no-audit", "--no-fund",
+    `@lancedb/lancedb@${version}`,
+  ], toolRoot, logPath);
+  if (result.code !== 0) throw new Error(`Could not install isolated @lancedb/lancedb@${version} for smoke testing; see ${logPath}`);
+
+  const req = createRequire(packagePath);
+  const entry = req.resolve("@lancedb/lancedb");
+  const installed = findPackageRoot(entry, "@lancedb/lancedb");
+  if (installed.pkg.version !== version) {
+    throw new Error(`Isolated smoke-test SDK resolved ${installed.pkg.version}; expected ${version}.`);
+  }
+  return installed.root;
+}
+
 async function build(version, options = {}) {
   requireIntelMac();
-  const installation = options.installation || await inspectInstallation(await findOpenLoreRoot(options.openLoreRoot));
-  if (installation.declared !== version || !installation.compatible) {
+  const installation = options.installation;
+  if (installation && (installation.declared !== version || !installation.compatible)) {
     throw new Error(`OpenLore requires ${installation.declared} and resolves ${installation.sdkVersion}; refusing to build/test ${version} against an inconsistent installation.`);
   }
   await ensureBuildTools();
@@ -321,7 +355,8 @@ async function build(version, options = {}) {
   validateNativeDependencies(output);
   await atomicCopy(output, paths.binary);
   const smokeLog = path.join(cacheRoot, "logs", `test-${version}.log`);
-  const test = await smokeTest(installation, paths.binary, smokeLog);
+  const sdkRoot = installation?.sdkRoot || await prepareSmokeTestSdk(version);
+  const test = await smokeTest(sdkRoot, paths.binary, smokeLog);
   const metadata = {
     npmVersion: version,
     gitTag: tag,
@@ -337,6 +372,7 @@ async function build(version, options = {}) {
     buildCommand: `cargo ${actualCargoArgs.join(" ")}`,
     buildLog: logPath,
     smokeTest: test,
+    smokeTestSdk: `@lancedb/lancedb@${version}`,
     builtAt: new Date().toISOString(),
     patches: [],
   };
@@ -509,10 +545,9 @@ async function main() {
     throw new Error("Usage: lancedb-intel <status|build|install|test|repair|restore> [--version X] [--build]");
   }
   let installation;
-  try {
+  const buildNeedsOpenLore = command === "build" && (!options.version || options["openlore-root"]);
+  if (command !== "build" || buildNeedsOpenLore) {
     installation = await inspectInstallation(await findOpenLoreRoot(options["openlore-root"]));
-  } catch (error) {
-    if (command !== "build" || !options.version) throw error;
   }
   if (command === "status") return status(installation);
   if (command === "build") return build(versionFrom(options, installation), { installation, openLoreRoot: options["openlore-root"], source: options.source });

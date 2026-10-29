@@ -1,5 +1,7 @@
 # Integration and update behavior
 
+The source-build procedure and native validation checks are reusable across JavaScript projects that depend on `@lancedb/lancedb`. This repository's automated package discovery and repair commands currently implement the OpenLore adapter only. Supporting another host application requires adding a package-root adapter; the LanceDB Rust build itself does not depend on OpenLore.
+
 ## Options compared
 
 | Option | Compatibility | Update resilience | Maintenance | Decision |

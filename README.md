@@ -1,6 +1,6 @@
-# LanceDB Intel for OpenLore
+# LanceDB Intel: macOS Native Build Recipes
 
-Build the official LanceDB Node binding for macOS Intel and apply it to an npm-installed OpenLore package without changing OpenLore's JavaScript. The tool is intentionally limited to `darwin-x64` and works on the installed OpenLore version only when the declared and resolved LanceDB versions match exactly.
+Build the official `@lancedb/lancedb` Node binding for macOS Intel from upstream source. The compilation steps, binary checks, and vector smoke test are reusable by other JavaScript projects that use LanceDB. The included installation and repair adapter currently targets npm-installed OpenLore, the first end-to-end integration. All native builds target `darwin-x64`.
 
 The tested combination is OpenLore `3.5.0`, LanceDB `0.40.0`, macOS `15.8`, Node `24.20.0`, and Rust `1.98.1`. The first upstream release build took **102 minutes** on this Intel Mac and produced a 192 MB `.node` module. Later builds with the same Cargo cache took under two seconds. `protoc` is required; Homebrew built it from source on this Intel host.
 
@@ -22,6 +22,10 @@ npm --version
 rustc --version
 protoc --version
 ```
+
+## OpenLore integration adapter
+
+The CLI currently discovers the LanceDB dependency through an OpenLore installation. Its `install` and `repair` commands inject the matching native module into that SDK package. Other projects can reuse the source-build and validation recipe, but need their own package discovery and install adapter; generic project-root support is not implemented yet.
 
 ## Commands
 
@@ -65,7 +69,7 @@ npm install -g openlore@latest
 
 If LanceDB remains at the same exact version, `repair` reuses the cached module. If the required version changes, the old build is never reused; run `./lancedb-intel build`, review its result, then run `./lancedb-intel repair`. The tool refuses to install when OpenLore's declared dependency and the resolved package version differ.
 
-The current global OpenLore installation on the test Mac was inconsistent: OpenLore `3.5.0` declares LanceDB `0.40.0`, while npm resolves `0.22.4-beta.3`. `lancedb-intel` reports and refuses this mismatch. No update or repair was run against that global installation.
+The initial audit found an inconsistent global OpenLore installation: OpenLore `3.5.0` declared LanceDB `0.40.0`, while npm resolved `0.22.4-beta.3`. The CLI reports and refuses this mismatch. No update or repair was run against that global installation.
 
 ## Rollback
 

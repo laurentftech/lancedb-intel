@@ -28,6 +28,42 @@ jobs:
           LANCEDB_VERSION: ${{ inputs.lancedb_version }}
         run: ./lancedb-intel build --version "$LANCEDB_VERSION"
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run official Node.js test suite against Intel module
+        shell: bash
+        env:
+          LANCEDB_VERSION: ${{ inputs.lancedb_version }}
+        run: |
+          set -euo pipefail
+          build_dir="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
+          source_dir="$build_dir/source"
+          sdk_dir="$build_dir/smoke-test-sdk/node_modules/@lancedb/lancedb"
+          export NAPI_RS_NATIVE_LIBRARY_PATH="$build_dir/lancedb.darwin-x64.node"
+          test -s "$NAPI_RS_NATIVE_LIBRARY_PATH"
+          test -s "$sdk_dir/dist/native.js"
+          test -s "$sdk_dir/dist/native.d.ts"
+          cd "$source_dir/nodejs"
+          test ! -e lancedb/native.js
+          test ! -e lancedb/native.d.ts
+          ln -s "$sdk_dir/dist/native.js" lancedb/native.js
+          ln -s "$sdk_dir/dist/native.d.ts" lancedb/native.d.ts
+          cleanup() {
+            rm -f lancedb/native.js lancedb/native.d.ts
+          }
+          trap cleanup EXIT
+          pnpm install --frozen-lockfile
+          pnpm tsc
+          pnpm test --runInBand
+
       - name: Prepare release assets
         id: assets
         shell: bash
@@ -59,7 +95,7 @@ jobs:
           tag="${{ steps.assets.outputs.tag }}"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" \
             --title "LanceDB $LANCEDB_VERSION · macOS Intel" \
-            --notes "Official LanceDB source build for x86_64-apple-darwin. Built and smoke-tested on the repository's self-hosted Intel Mac runner. See build-info.json for source commit and toolchain details."
+            --notes "Official LanceDB source build for x86_64-apple-darwin. Built on the repository's self-hosted Intel Mac runner, passed the official Node.js test suite, and passed the isolated SDK smoke test. See build-info.json for source commit and toolchain details."
           gh release upload "$tag" \
             "${{ steps.assets.outputs.dir }}/lancedb.darwin-x64.node" \
             "${{ steps.assets.outputs.dir }}/build-info.json" \

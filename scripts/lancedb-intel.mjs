@@ -6,6 +6,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateCargoLockVersionBump } from "./cargo-lockfile.mjs";
 import {
   copyFile,
   mkdir,
@@ -331,17 +332,7 @@ async function build(version, options = {}) {
   }
   const lockDiff = runSync("git", ["diff", "--", "Cargo.lock"], source);
   if (lockDiff) {
-    const changes = lockDiff.split(/\r?\n/).filter((line) => (line.startsWith("+") && !line.startsWith("+++")) || (line.startsWith("-") && !line.startsWith("---")));
-    const removals = changes.filter((line) => line.startsWith("-")).map((line) => line.slice(1));
-    const additions = changes.filter((line) => line.startsWith("+")).map((line) => line.slice(1));
-    if (
-      removals.length !== 3 ||
-      additions.length !== 3 ||
-      removals.some((line) => line !== `version = "${version}-beta.12"`) ||
-      additions.some((line) => line !== `version = "${version}"`)
-    ) {
-      throw new Error(`Cargo.lock changed beyond the three expected workspace version entries; refusing an unreviewed dependency update. Diff: ${lockDiff}`);
-    }
+    validateCargoLockVersionBump(lockDiff, version);
     await mkdir(path.join(cacheRoot, "patches"), { recursive: true });
     await writeFile(path.join(cacheRoot, "patches", `cargo-lock-${version}.patch`), lockDiff);
   }

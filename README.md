@@ -88,9 +88,14 @@ The runner needs labels `self-hosted`, `macOS`, `X64`, and `lancedb-intel`. The 
 
 The repository's `lancedb-intel` utility includes an adapter for npm-installed OpenLore. It can discover OpenLore's exact LanceDB version and install a matching cached binary with backup and rollback support. Other applications can install the published binary using the general steps above; their package lifecycle may need its own adapter.
 
-To use a published Release with OpenLore, download its assets into the utility's versioned cache, verify them, and run `repair`:
+To use a published Release with OpenLore, the commands below clone this utility into a temporary directory, download the release assets into its versioned cache, verify them, and run `repair`. They can be run from any directory:
 
 ```sh
+set -e
+UTILITY_DIR="$(mktemp -d)"
+trap 'rm -rf "$UTILITY_DIR"' EXIT
+git clone --depth 1 https://github.com/laurentftech/lancedb-intel.git "$UTILITY_DIR/lancedb-intel"
+
 OPENLORE_ROOT="$(npm root -g)/openlore"
 LANCEDB_VERSION="$(node -e 'const p=require(process.argv[1]); process.stdout.write(p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"] ?? "")' "$OPENLORE_ROOT/package.json")"
 CACHE="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
@@ -103,7 +108,7 @@ done
 (cd "$CACHE" && shasum -a 256 -c SHA256SUMS)
 gh attestation verify "$CACHE/lancedb.darwin-x64.node" --repo laurentftech/lancedb-intel
 export OPENLORE_ROOT
-./lancedb-intel repair
+"$UTILITY_DIR/lancedb-intel/lancedb-intel" repair
 ```
 
 `repair` checks the cached version and metadata, installs the module, and runs a vector smoke test. If the matching Release is unavailable, it stops without changing the OpenLore installation. After an OpenLore update, run `./lancedb-intel repair` again. To undo the integration, run `./lancedb-intel restore`; it restores the previous binary if one existed, or removes the module managed by this utility.

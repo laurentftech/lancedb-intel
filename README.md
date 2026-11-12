@@ -86,7 +86,7 @@ The runner needs labels `self-hosted`, `macOS`, `X64`, and `lancedb-intel`. The 
 
 ## OpenLore integration example
 
-The repository's `lancedb-intel` utility includes an adapter for npm-installed OpenLore. It can discover OpenLore's exact LanceDB version and install a matching cached binary with backup and rollback support. Other applications can install the published binary using the general steps above; their package lifecycle may need its own adapter.
+The repository's `lancedb-intel` utility includes an adapter for npm-installed OpenLore. It discovers the selected installation's exact LanceDB version and installs a matching cached binary with backup and rollback support. The example below defaults to the global npm installation. If OpenLore is loaded from another package root (for example, a Pi extension installation), set `OPENLORE_ROOT` to that exact root first. A repair changes only that one installation. Other applications can install the published binary using the general steps above; their package lifecycle may need its own adapter.
 
 To use a published Release with OpenLore, the commands below clone this utility into a temporary directory, download the release assets into its versioned cache, verify them, and run `repair`. They can be run from any directory:
 
@@ -96,7 +96,7 @@ UTILITY_DIR="$(mktemp -d)"
 trap 'rm -rf "$UTILITY_DIR"' EXIT
 git clone --depth 1 https://github.com/laurentftech/lancedb-intel.git "$UTILITY_DIR/lancedb-intel"
 
-OPENLORE_ROOT="$(npm root -g)/openlore"
+OPENLORE_ROOT="${OPENLORE_ROOT:-$(npm root -g)/openlore}"
 LANCEDB_VERSION="$(node -e 'const p=require(process.argv[1]); process.stdout.write(p.optionalDependencies?.["@lancedb/lancedb"] ?? p.dependencies?.["@lancedb/lancedb"] ?? "")' "$OPENLORE_ROOT/package.json")"
 CACHE="$HOME/.local/share/lancedb-intel/builds/$LANCEDB_VERSION"
 TAG="v$LANCEDB_VERSION"
@@ -109,6 +109,21 @@ done
 gh attestation verify "$CACHE/lancedb.darwin-x64.node" --repo laurentftech/lancedb-intel
 export OPENLORE_ROOT
 "$UTILITY_DIR/lancedb-intel/lancedb-intel" repair
+```
+
+For Pi, inspect the `extensionPaths` in the Pi configuration and use the package root that Pi actually loads. For example, if it points to `~/.pi/agent/npm/node_modules/openlore`, set this before running the example above:
+
+```sh
+export OPENLORE_ROOT="$HOME/.pi/agent/npm/node_modules/openlore"
+```
+
+Use the path from your own Pi configuration if it differs. The example reads the LanceDB version from this selected package, so the download, cache lookup, repair, and smoke test all target the same OpenLore installation. If both the global CLI and Pi have separate OpenLore package roots, run the repair once for each root.
+
+After a successful repair, stop the daemon that was already running so the next Pi tool call starts a process with the repaired native module:
+
+```sh
+PROJECT_ROOT=/path/to/your/project
+node "$OPENLORE_ROOT/dist/cli/index.js" serve --stop --directory "$PROJECT_ROOT"
 ```
 
 `repair` checks the cached version and metadata, installs the module, and runs a vector smoke test. If the matching Release is unavailable, it stops without changing the OpenLore installation. After an OpenLore update, run `./lancedb-intel repair` again. To undo the integration, run `./lancedb-intel restore`; it restores the previous binary if one existed, or removes the module managed by this utility.
